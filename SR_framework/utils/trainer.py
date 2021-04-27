@@ -10,6 +10,7 @@ class Trainer():
         self.data = data
         self.init_lr = lr_conf["init_learning_rate"]
         self.decay_mode = lr_conf["decay_mode"]
+        self.lr_reset = True
         self.per_epoch = None
         self.decay_rate = None
         self.eta_min = None
@@ -24,6 +25,8 @@ class Trainer():
             self.decay_rate = lr_conf["decay_rate"]
         if "eta_min" in lr_conf:
             self.eta_min = lr_conf["eta_min"]
+        if "learning_rate_reset" in lr_conf:
+            self.lr_reset = utils.get_bool(lr_conf["learning_rate_reset"])
         if self.is_break:
             utils.log("The train will be continue!", self.sys_conf.model_name)
         else:
@@ -36,6 +39,7 @@ class Trainer():
         utils.log("--------This is learning rate and decay config-------", self.sys_conf.model_name)
         utils.log("Init learning rate: " + str(self.init_lr), self.sys_conf.model_name)
         utils.log("Learning rate decay mode: " + str(self.decay_mode), self.sys_conf.model_name)
+        utils.log("Learning rate reset per scale: " + str(self.lr_reset), self.sys_conf.model_name)
         if self.per_epoch != None:
             utils.log("The learning rate will decay every " + str(self.per_epoch) + " epochs", self.sys_conf.model_name)
         if self.decay_rate != None:
@@ -114,6 +118,9 @@ class Trainer():
     def __train_scale_pos_is_forward(self):
         net = self.__get_model()
         loss_func = self.sys_conf.get_loss()
+        if not self.lr_reset:
+            optim = self.__set_optim(net)
+            scheduler = self._set_scheduler(optim)
         if self.is_break:
             para = torch.load(self.break_path)
             net.load_state_dict(para)
@@ -122,8 +129,9 @@ class Trainer():
         net = net.to(self.sys_conf.device)
         net.train()
         for scale in self.sys_conf.scale_factor:
-            optim = self.__set_optim(net)
-            scheduler = self._set_scheduler(optim)
+            if self.lr_reset:
+                optim = self.__set_optim(net)
+                scheduler = self._set_scheduler(optim)
             self.__update_scale(scale)
             train_data = self.data.get_loader()
             for epoch in range(1, self.sys_conf.Epoch + 1):
@@ -202,6 +210,9 @@ class Trainer():
     def __train_model_mode_is_pre(self):
         net = self.__get_model()
         loss_func = self.sys_conf.get_loss()
+        if not self.lr_reset:
+            optim = self.__set_optim(net)
+            scheduler = self._set_scheduler(optim)
         if self.is_break:
             para = torch.load(self.break_path)
             net.load_state_dict(para)
@@ -211,8 +222,9 @@ class Trainer():
         net.train()
         for scale in self.sys_conf.scale_factor:
             self.__update_scale(scale)
-            optim = self.__set_optim(net)
-            scheduler = self._set_scheduler(optim)
+            if self.lr_reset:
+                optim = self.__set_optim(net)
+                scheduler = self._set_scheduler(optim)
             train_data = self.data.get_loader()
             for epoch in range(1, self.sys_conf.Epoch + 1):
                 if self.is_break and epoch <= self.breakpoint_epoch:
