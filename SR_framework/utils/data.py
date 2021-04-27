@@ -22,8 +22,8 @@ class SR_dataset_RGB(Dataset):
         return len(self.hr_img)
     def get_patch(self, lr, hr):
         h, w, _ = lr.shape
-        randh = random.randrange(0, h - self.patch_size + 1)
-        randw = random.randrange(0, w - self.patch_size + 1)
+        randh = random.randrange(0, h - self.patch_size)
+        randw = random.randrange(0, w - self.patch_size)
         toh = randh + self.patch_size
         tow = randw + self.patch_size
         lr_patch = lr[randh:toh, randw:tow ,:]
@@ -51,8 +51,8 @@ class SR_dataset_RGB(Dataset):
 class SR_dataset_Y(SR_dataset_RGB):
     def get_patch(self, lr, hr):
         h, w = lr.shape
-        randh = random.randrange(0, h - self.patch_size + 1)
-        randw = random.randrange(0, w - self.patch_size + 1)
+        randh = random.randrange(0, h - self.patch_size)
+        randw = random.randrange(0, w - self.patch_size)
         toh = randh + self.patch_size
         tow = randw + self.patch_size
         lr_patch = lr[randh : toh, randw : tow]
