@@ -38,8 +38,8 @@ class Trainer():
         self.data.show()
         utils.log("--------This is learning rate and decay config-------", self.sys_conf.model_name)
         utils.log("Init learning rate: " + str(self.init_lr), self.sys_conf.model_name)
-        utils.log("Learning rate decay mode: " + str(self.decay_mode), self.sys_conf.model_name)
         utils.log("Learning rate reset per scale: " + str(self.lr_reset), self.sys_conf.model_name)
+        utils.log("Learning rate decay mode: " + str(self.decay_mode), self.sys_conf.model_name)
         if self.per_epoch != None:
             utils.log("The learning rate will decay every " + str(self.per_epoch) + " epochs", self.sys_conf.model_name)
         if self.decay_rate != None:
@@ -128,10 +128,17 @@ class Trainer():
             utils.init_weights(self.sys_conf.weight_init, net, self.sys_conf.model_name)
         net = net.to(self.sys_conf.device)
         net.train()
+        scale_list_pos = 0
         for scale in self.sys_conf.scale_factor:
+            scale_list_pos += 1
             if self.lr_reset:
                 optim = self.__set_optim(net)
                 scheduler = self._set_scheduler(optim)
+            else:
+                if scale_list_pos > 2:
+                    scheduler = self._set_scheduler(optim)
+                    for _ in range(self.sys_conf.Epoch):
+                        scheduler.step()
             self.__update_scale(scale)
             train_data = self.data.get_loader()
             for epoch in range(1, self.sys_conf.Epoch + 1):
@@ -220,11 +227,18 @@ class Trainer():
             utils.init_weights(self.sys_conf.weight_init, net, self.sys_conf.model_name)
         net = net.to(self.sys_conf.device)
         net.train()
+        scale_list_pos = 0
         for scale in self.sys_conf.scale_factor:
+            scale_list_pos += 1
             self.__update_scale(scale)
             if self.lr_reset:
                 optim = self.__set_optim(net)
                 scheduler = self._set_scheduler(optim)
+            else:
+                if scale_list_pos > 2:
+                    scheduler = self._set_scheduler(optim)
+                    for _ in range(self.sys_conf.Epoch):
+                        scheduler.step()
             train_data = self.data.get_loader()
             for epoch in range(1, self.sys_conf.Epoch + 1):
                 if self.is_break and epoch <= self.breakpoint_epoch:

@@ -77,6 +77,7 @@ class sys_config():
         else:
             return get_loss_func(self.loss_function, self.loss_args)
     def set_test_config(self, args, test_cfg):
+        self.scale_factor = list(dict.fromkeys(self.scale_factor))
         self.test_color_channel = test_cfg["color_channel"]
         self.test_all = False
         self.shave = 0
