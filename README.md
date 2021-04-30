@@ -289,7 +289,7 @@ python demo.py SRCNN --file 'net_x3_100.pth' --dataset 'Set5'
 python unload.py <model>
 ```
 
-它会在根目录中按照json文件中的`model_name`自动生成一个文件夹，然后将结果移动至该文件夹中，由于权限的原因，移动结束后并不会删除原始文件夹，因此需要手动删除
+它会在根目录中按照json文件中的`model_name`自动生成一个文件夹，然后将结果移动至该文件夹中
 
 ## 版本迭代
 
