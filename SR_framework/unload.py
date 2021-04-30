@@ -36,16 +36,17 @@ def unload():
             if not os.path.exists(new_path):
                 os.mkdir(new_path)
             if not os.path.exists(model_folder):
-                break
+                continue
             file_list = []
             file_list.extend(glob.glob(os.path.join(model_folder, "*.*")))
             for f in file_list:
                 move_file(f, new_path)
+            os.rmdir(model_folder)
             print(folder.replace('.', '').replace('/', '') + ' success!')
         else:
             log_file = folder + model_name + '.log'
             if not os.path.exists(log_file):
-                break
+                continue
             move_file(log_file, save_path)
             print("Log file success!")
     move_file('./config/' + args.cfg_file + '.json', save_path)

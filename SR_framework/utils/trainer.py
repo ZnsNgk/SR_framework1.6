@@ -1,5 +1,6 @@
 import torch
 import utils
+import shutil
 import os
 from tqdm import tqdm
 import models
@@ -84,7 +85,8 @@ class Trainer():
             if s == "no":
                 exit()
             elif s == "yes":
-                pass
+                shutil.rmtree(trained_model_path)
+                os.makedirs(trained_model_path)
             else:
                 raise NameError("WRONG INPUT!")
     def __update_scale(self, curr_scale):
@@ -137,11 +139,16 @@ class Trainer():
                 scheduler = self._set_scheduler(optim)
             else:
                 if self.curr_scale_list_pos > 1:
-                    scheduler = self._set_scheduler(optim)
-                    for _ in range(self.sys_conf.Epoch):
-                        scheduler.step()
+                    if self.is_break:
+                        for _ in range(self.sys_conf.Epoch):
+                            scheduler.step()
+                        optim_state = optim.state_dict()
+                        scheduler_state = scheduler.state_dict()
+                    else:
+                        optim.load_state_dict(optim_state)
+                        scheduler.load_state_dict(scheduler_state)
             self.__update_scale(scale)
-            train_data = self.data.get_loader()
+            train_data = self.data.get_loader() 
             for epoch in range(1, self.sys_conf.Epoch + 1):
                 if self.is_break and epoch <= self.breakpoint_epoch:
                     scheduler.step()
@@ -167,6 +174,9 @@ class Trainer():
                 if epoch % self.sys_conf.save_step == 0:
                     PATH = './trained_model/' + self.sys_conf.model_name + '/net_x'+ str(self.curr_scale) + '_' + str(epoch) + '.pth'
                     torch.save(net.state_dict(), PATH)
+            if self.curr_scale_list_pos == 1:
+                optim_state = optim.state_dict()
+                scheduler_state = scheduler.state_dict()
             utils.log("Finished trained scale " + str(self.curr_scale), self.sys_conf.model_name, True)
             PATH = './trained_model/' + self.sys_conf.model_name + '/x'+ str(self.curr_scale) + '.pkl'
             torch.save(net, PATH)
@@ -236,9 +246,14 @@ class Trainer():
                 scheduler = self._set_scheduler(optim)
             else:
                 if self.curr_scale_list_pos > 1:
-                    scheduler = self._set_scheduler(optim)
-                    for _ in range(self.sys_conf.Epoch):
-                        scheduler.step()
+                    if self.is_break:
+                        for _ in range(self.sys_conf.Epoch):
+                            scheduler.step()
+                        optim_state = optim.state_dict()
+                        scheduler_state = scheduler.state_dict()
+                    else:
+                        optim.load_state_dict(optim_state)
+                        scheduler.load_state_dict(scheduler_state)
             train_data = self.data.get_loader()
             for epoch in range(1, self.sys_conf.Epoch + 1):
                 if self.is_break and epoch <= self.breakpoint_epoch:
@@ -265,6 +280,9 @@ class Trainer():
                 if epoch % self.sys_conf.save_step == 0:
                     PATH = './trained_model/' + self.sys_conf.model_name + '/net_x'+ str(self.curr_scale) + '_' + str(epoch) + '.pth'
                     torch.save(net.state_dict(), PATH)
+            if self.curr_scale_list_pos == 1:
+                optim_state = optim.state_dict()
+                scheduler_state = scheduler.state_dict()
             utils.log("Finished trained scale " + str(self.curr_scale), self.sys_conf.model_name, True)
             PATH = './trained_model/' + self.sys_conf.model_name + '/x'+ str(self.curr_scale) + '.pkl'
             torch.save(net, PATH)
