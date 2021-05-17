@@ -10,7 +10,7 @@ torch.backends.cudnn.benchmark = True
 torch.set_grad_enabled(False)
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Train")
+    parser = argparse.ArgumentParser(description="Test")
     parser.add_argument("cfg_file", help = "config file", type = str)
     parser.add_argument("--once", default = None, type = str, help="Your model parameter file path")
     parser.add_argument("--all", action = "store_true")

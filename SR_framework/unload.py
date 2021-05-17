@@ -5,7 +5,7 @@ import shutil
 import argparse
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Train")
+    parser = argparse.ArgumentParser(description="Unload")
     parser.add_argument("cfg_file", help = "config file", type = str)
     args = parser.parse_args()
     return args
