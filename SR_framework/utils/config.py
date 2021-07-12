@@ -1,3 +1,4 @@
+import os
 from torch.cuda import is_available
 from torch import device
 from .logs import log
@@ -14,6 +15,7 @@ class sys_config():
         self.Epoch = cfg["Epoch"]
         self.scale_pos = "init"
         self.device = "cuda:0"
+        self.device_in_prog = None
         self.model_args = None
         self.save_step = cfg["save_step"]
         self.scale_factor = cfg["scale_factor"]
@@ -21,6 +23,7 @@ class sys_config():
         self.patch_size = cfg["patch_size"]
         self.__set_scale()
         self.optim_args = None
+        self.parallel = False
         if "device" in cfg:
             self.device = cfg["device"]
         if "model_args" in cfg:
@@ -41,9 +44,29 @@ class sys_config():
         self.device = device(self.device)
     def __check_cuda(self):
         if "cuda" in self.device:
+            cuda_idx = self.device.split(':')
+            cuda_idx = cuda_idx[1].replace(' ', '')
+            os.environ["CUDA_VISIBLE_DEVICES"] = cuda_idx
             if not is_available():
-                print("Cuda is not useable, now try to use cpu!")
+                print(self.device + " is not useable, now try to use cpu!")
                 self.device = "cpu"
+                self.device_in_prog = 'cpu'
+            else:
+                if not cuda_idx == "0":
+                    cuda_idx_int = []
+                    if ',' in cuda_idx:
+                        idx = cuda_idx.split(',')
+                        for name in idx:
+                            cuda_idx_int.append(int(name))
+                    else:
+                        cuda_idx_int.append(int(cuda_idx))
+                    if len(cuda_idx_int) > 1:
+                        self.device_in_prog = list(range(len(cuda_idx_int)))
+                        self.parallel = True
+                    else:
+                        self.device_in_prog = "cuda:0"
+                else:
+                    self.device_in_prog = "cuda:0"
     def __set_scale(self):
         if not isinstance(self.scale_factor, list):
             scale_list = []

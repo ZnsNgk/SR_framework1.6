@@ -130,7 +130,7 @@ class Trainer():
             net.load_state_dict(para)
         else:
             utils.init_weights(self.sys_conf.weight_init, net, self.sys_conf.model_name)
-        net = net.to(self.sys_conf.device)
+        net = net.to(self.sys_conf.device_in_prog)
         net.train()
         for scale in self.sys_conf.scale_factor:
             self.curr_scale_list_pos += 1
@@ -159,8 +159,8 @@ class Trainer():
                     for lr, hr in t:
                         i += 1
                         optim.zero_grad()
-                        sr = net(lr.to(self.sys_conf.device), scale)
-                        loss = loss_func(sr, hr.to(self.sys_conf.device))
+                        sr = net(lr.to(self.sys_conf.device_in_prog), scale)
+                        loss = loss_func(sr, hr.to(self.sys_conf.device_in_prog))
                         loss.backward()
                         optim.step()
                         running_loss += float(loss)
@@ -194,7 +194,7 @@ class Trainer():
                 utils.init_weights(self.sys_conf.weight_init, net, self.sys_conf.model_name)
             optim = self.__set_optim(net)
             scheduler = self._set_scheduler(optim)
-            net = net.to(self.sys_conf.device)
+            net = net.to(self.sys_conf.device_in_prog)
             train_data = self.data.get_loader()
             for epoch in range(1, self.sys_conf.Epoch + 1):
                 if self.is_break and epoch <= self.breakpoint_epoch:
@@ -206,8 +206,8 @@ class Trainer():
                     for lr, hr in t:
                         i += 1
                         optim.zero_grad()
-                        sr = net(lr.to(self.sys_conf.device))
-                        loss = loss_func(sr, hr.to(self.sys_conf.device))
+                        sr = net(lr.to(self.sys_conf.device_in_prog))
+                        loss = loss_func(sr, hr.to(self.sys_conf.device_in_prog))
                         loss.backward()
                         optim.step()
                         running_loss += float(loss)
@@ -236,7 +236,7 @@ class Trainer():
             net.load_state_dict(para)
         else:
             utils.init_weights(self.sys_conf.weight_init, net, self.sys_conf.model_name)
-        net = net.to(self.sys_conf.device)
+        net = net.to(self.sys_conf.device_in_prog)
         net.train()
         for scale in self.sys_conf.scale_factor:
             self.curr_scale_list_pos += 1
@@ -265,8 +265,8 @@ class Trainer():
                     for lr, hr in t:
                         i += 1
                         optim.zero_grad()
-                        sr = net(lr.to(self.sys_conf.device))
-                        loss = loss_func(sr, hr.to(self.sys_conf.device))
+                        sr = net(lr.to(self.sys_conf.device_in_prog))
+                        loss = loss_func(sr, hr.to(self.sys_conf.device_in_prog))
                         loss.backward()
                         optim.step()
                         running_loss += float(loss)

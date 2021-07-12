@@ -7,11 +7,16 @@ from .bool import get_bool
 from.logs import log
 
 class SR_dataset_RGB(Dataset):
-    def __init__(self, HR_folder, LR_folder, scale, patch_size, train=True, is_post=True, normal=False):
+    def __init__(self, HR_folder, LR_folder, scale, patch_size, train=True, is_post=True, normal=False, is_real=False):
         self.scale = scale
         self.HR_folder = HR_folder
         self.LR_folder = LR_folder
-        self.LR_folder += (str(self.scale) + '/')
+        self.is_real = is_real
+        if self.is_real:
+            self.HR_folder += (str(self.scale) + '/')
+            self.LR_folder += (str(self.scale) + '/')
+        else:
+            self.LR_folder += (str(self.scale) + '/')
         self.hr_img = os.listdir(self.HR_folder)
         self.lr_img = os.listdir(self.LR_folder)
         self.patch_size = patch_size
@@ -134,6 +139,7 @@ class Data():
         self.scale = 1
         self.normal = get_bool(data_config["normalize"])
         self.shuffle = (get_bool(data_config["shuffle"]) if self.train else False)
+        self.pic_pair = False
         if sys_conf.color_channel == "RGB":
             self.color_is_RGB = True
         elif sys_conf.color_channel == "Y":
@@ -148,35 +154,57 @@ class Data():
         if "drop_last" in data_config:
             self.drop_last = (get_bool(data_config["drop_last"])if self.train else False)
         self.pin_memory = True
+        if "pic_pair" in data_config:
+            self.pic_pair = get_bool(data_config["pic_pair"])
         if "pin_memory" in data_config:
             self.pin_memory = get_bool(data_config["pin_memory"])
     def show(self):
         log("--------This is dataset and dataloader config--------", self.model_name)
         log("Dataloader num workers: " + str(self.num_workers), self.model_name)
+        log("Dataset is pair: " + str(self.pic_pair), self.model_name)
         log("Shuffle: " + str(self.shuffle), self.model_name)
         log("Drop the last batch: " + str(self.drop_last), self.model_name)
         log("Using pin menory: " + str(self.pin_memory), self.model_name)
         log("Using normalization: " + str(self.normal), self.model_name)
     def __set_dataset_path(self):
-        HR_folder = './data/'
-        if self.train:
-            HR_folder += 'train/'
+        if not self.pic_pair:
+            HR_folder = './data/'
+            if self.train:
+                HR_folder += 'train/'
+            else:
+                HR_folder += 'test/'
+            HR_folder += self.dataset
+            if not self.color_is_RGB:
+                HR_folder += '_Y'
+            LR_folder = HR_folder + '_LR/'
+            HR_folder += '/'
         else:
-            HR_folder += 'test/'
-        HR_folder += self.dataset
-        if not self.color_is_RGB:
-            HR_folder += '_Y'
-        LR_folder = HR_folder + '_LR/'
-        HR_folder += '/'
+            HR_folder = './data/'
+            LR_folder = './data/'
+            if self.train:
+                HR_folder += 'train/'
+                LR_folder += 'train/'
+            else:
+                HR_folder += 'test/'
+                LR_folder += 'test/'
+            HR_folder += self.dataset
+            LR_folder += self.dataset
+            HR_folder += '/HR'
+            LR_folder += '/LR'
+            if not self.color_is_RGB:
+                HR_folder += '_Y'
+                LR_folder += '_Y'
+            HR_folder += '/'
+            LR_folder += '/'
         return LR_folder, HR_folder
     def update_scale(self, scale):
         self.scale = scale
     def get_loader(self):
         LR_folder, HR_folder = self.__set_dataset_path()
         if self.color_is_RGB:
-            data = SR_dataset_RGB(HR_folder, LR_folder, self.scale, self.patch_size, self.train, self.is_post, self.normal)
+            data = SR_dataset_RGB(HR_folder, LR_folder, self.scale, self.patch_size, self.train, self.is_post, self.normal, self.pic_pair)
         else:
-            data = SR_dataset_Y(HR_folder, LR_folder, self.scale, self.patch_size, self.train, self.is_post, self.normal)
+            data = SR_dataset_Y(HR_folder, LR_folder, self.scale, self.patch_size, self.train, self.is_post, self.normal, self.pic_pair)
         loader = DataLoader(data, self.batch_size, self.shuffle, num_workers=self.num_workers, 
                             drop_last=self.drop_last, pin_memory=self.pin_memory)
         return loader

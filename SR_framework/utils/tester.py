@@ -53,13 +53,13 @@ class Tester():
         self.show()
         utils.log("Now Starting test!", self.sys_conf.model_name, True)
         if self.is_pkl:
-            net = torch.load(self.test_path, map_location=self.sys_conf.device)
+            net = torch.load(self.test_path, map_location=self.sys_conf.device_in_prog)
         else:
             net = self.__get_model()
-            para = torch.load(self.test_path, map_location=self.sys_conf.device)
+            para = torch.load(self.test_path, map_location=self.sys_conf.device_in_prog)
             net.load_state_dict(para)
         net.eval()
-        net.to(self.sys_conf.device)
+        net.to(self.sys_conf.device_in_prog)
         test_data = utils.Data(self.sys_conf, self.data_config, False)
         test_data.update_scale(self.curr_scale)
         self.is_normal = test_data.normal
@@ -110,9 +110,9 @@ class Tester():
                     test_file = "net_x" + str(self.curr_scale) + "_" + str(i * self.sys_conf.save_step) + ".pth"
                     utils.log("Now testing model " + str(test_file), self.sys_conf.model_name, True)
                     test_path = self.test_path + test_file
-                    para = torch.load(test_path, map_location=self.sys_conf.device)
+                    para = torch.load(test_path, map_location=self.sys_conf.device_in_prog)
                     net.load_state_dict(para)
-                    net.to(self.sys_conf.device)
+                    net.to(self.sys_conf.device_in_prog)
                     if self.sys_conf.model_mode == "post":
                         if self.sys_conf.scale_pos == "init":
                             psnr, ssim = self.__test_pre_or_init(net, test_data.get_loader(), self.is_normal)
@@ -146,7 +146,7 @@ class Tester():
         for _, data in enumerate(loader):
             test_len += 1
             lr, hr = data
-            sr = net(lr.to(self.sys_conf.device), self.curr_scale)
+            sr = net(lr.to(self.sys_conf.device_in_prog), self.curr_scale)
             sr = sr.permute(0, 2, 3, 1).squeeze(0).cpu()
             hr = hr.permute(0, 2, 3, 1).squeeze(0).cpu()
             if is_normal:
@@ -165,7 +165,7 @@ class Tester():
         for _, data in enumerate(loader):
             test_len += 1
             lr, hr = data
-            sr = net(lr.to(self.sys_conf.device))
+            sr = net(lr.to(self.sys_conf.device_in_prog))
             sr = sr.permute(0, 2, 3, 1).squeeze(0).cpu()
             hr = hr.permute(0, 2, 3, 1).squeeze(0).cpu()
             if is_normal:
