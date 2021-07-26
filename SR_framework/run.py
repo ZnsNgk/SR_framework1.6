@@ -28,7 +28,7 @@ def main():
         cmd = cmd + "train.py " + model
         print(cmd)
         try:
-            ret = subprocess.run(cmd, shell=False)
+            ret = subprocess.run(cmd, shell=True)
             if ret != 0:
                 return
         except:
@@ -42,7 +42,7 @@ def main():
         cmd = cmd + "test.py " + model + " --all"
         print(cmd)
         try:
-            ret = subprocess.run(cmd, shell=False)
+            ret = subprocess.run(cmd, shell=True)
             if ret != 0:
                 return
         except:
@@ -56,7 +56,7 @@ def main():
         cmd = cmd + "unload.py " + model
         print(cmd)
         try:
-            ret = subprocess.run(cmd, shell=False)
+            ret = subprocess.run(cmd, shell=True)
             if ret != 0:
                 return
         except:
