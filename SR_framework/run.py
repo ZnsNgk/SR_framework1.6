@@ -29,7 +29,7 @@ def main():
         print(cmd)
         try:
             ret = subprocess.run(cmd, shell=True)
-            if ret != 0:
+            if ret.returncode != 0:
                 return
         except:
             return
@@ -43,7 +43,7 @@ def main():
         print(cmd)
         try:
             ret = subprocess.run(cmd, shell=True)
-            if ret != 0:
+            if ret.returncode != 0:
                 return
         except:
             return
@@ -57,7 +57,7 @@ def main():
         print(cmd)
         try:
             ret = subprocess.run(cmd, shell=True)
-            if ret != 0:
+            if ret.returncode != 0:
                 return
         except:
             return
