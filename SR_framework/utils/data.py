@@ -1,13 +1,13 @@
 import torch
 import os, random
 import cv2
-import numpy
+import numpy, math
 from torch.utils.data import Dataset, DataLoader
 from .bool import get_bool
 from.logs import log
 
 class SR_dataset_RGB(Dataset):
-    def __init__(self, HR_folder, LR_folder, scale, patch_size, train=True, is_post=True, normal=False, is_real=False):
+    def __init__(self, HR_folder, LR_folder, scale, patch_size, train=True, is_post=True, normal=False, is_real=False, test_patch=None):
         self.scale = scale
         self.HR_folder = HR_folder
         self.LR_folder = LR_folder
@@ -23,6 +23,7 @@ class SR_dataset_RGB(Dataset):
         self.train = train
         self.is_post = is_post
         self.normal = normal
+        self.cut = test_patch
     def __len__(self):
         return len(self.hr_img)
     def get_patch(self, lr, hr):
@@ -37,6 +38,25 @@ class SR_dataset_RGB(Dataset):
         else:
             hr_patch = hr[randh : toh, randw : tow, :]
         return lr_patch,  hr_patch
+    def cut_pic(self, lr):
+        [c, h_lr, w_lr] = lr.shape
+        h_n = math.ceil(h_lr / self.cut)
+        w_n = math.ceil(w_lr / self.cut)
+        patch_num = h_n * w_n
+        lr_patch = torch.zeros([patch_num, c, self.cut, self.cut])
+        n = 0
+        for i in range(h_n):
+            for j in range(w_n):
+                if ((i + 1) == h_n) and ((j + 1) == w_n):
+                    lr_patch[n, :, :, :] = lr[ :, h_lr-self.cut:, w_lr-self.cut:]
+                elif (i + 1) == h_n:
+                    lr_patch[n, :, :, :] = lr[:, h_lr-self.cut:, j*self.cut:(j+1)*self.cut]
+                elif (j + 1) == w_n:
+                    lr_patch[n, :, :, :] = lr[:, i*self.cut:(i+1)*self.cut, w_lr-self.cut:]
+                else:
+                    lr_patch[n, :, :, :] = lr[:, i*self.cut:(i+1)*self.cut, j*self.cut:(j+1)*self.cut]
+                n += 1
+        return lr_patch, [h_lr, w_lr]
     def __getitem__(self, index):
         hr_name = self.hr_img[index]
         lr_name = self.lr_img[index]
@@ -51,6 +71,9 @@ class SR_dataset_RGB(Dataset):
         if self.normal:
             hr = hr / 255.
             lr = lr / 255.
+        if not self.cut == None:
+            lr, shape = self.cut_pic(lr)
+            return lr, hr, shape
         return lr, hr
 
 class SR_dataset_Y(SR_dataset_RGB):
@@ -66,6 +89,25 @@ class SR_dataset_Y(SR_dataset_RGB):
         else:
             hr_patch = hr[randh : toh, randw : tow]
         return lr_patch,  hr_patch
+    def cut_pic(self, lr):
+        [c, h_lr, w_lr] = lr.shape
+        h_n = math.ceil(h_lr / self.cut)
+        w_n = math.ceil(w_lr / self.cut)
+        patch_num = h_n * w_n
+        lr_patch = torch.zeros([patch_num, c, self.cut, self.cut])
+        n = 0
+        for i in range(h_n):
+            for j in range(w_n):
+                if ((i + 1) == h_n) and ((j + 1) == w_n):
+                    lr_patch[n, :, :, :] = lr[ :, h_lr-self.cut:, w_lr-self.cut:]
+                elif (i + 1) == h_n:
+                    lr_patch[n, :, :, :] = lr[:, h_lr-self.cut:, j*self.cut:(j+1)*self.cut]
+                elif (j + 1) == w_n:
+                    lr_patch[n, :, :, :] = lr[:, i*self.cut:(i+1)*self.cut, w_lr-self.cut:]
+                else:
+                    lr_patch[n, :, :, :] = lr[:, i*self.cut:(i+1)*self.cut, j*self.cut:(j+1)*self.cut]
+                n += 1
+        return lr_patch, [h_lr, w_lr]
     def __getitem__(self, index):
         hr_name = self.hr_img[index]
         lr_name = self.lr_img[index]
@@ -80,6 +122,9 @@ class SR_dataset_Y(SR_dataset_RGB):
         if self.normal:
             hr = hr / 255.
             lr = lr / 255.
+        if not self.cut == None:
+            lr, shape = self.cut_pic(lr)
+            return lr, hr, shape
         return lr, hr
 
 class SR_demo(Dataset):
@@ -131,7 +176,7 @@ def get_demo_loader(folder, scale, normal, is_input, is_Y):
     return DataLoader(data, 1, False, num_workers=0, drop_last=False, pin_memory=False)
 
 class Data():
-    def __init__(self, sys_conf, data_config, train=True):
+    def __init__(self, sys_conf, data_config, train=True, test_patch=None):
         self.train = train
         self.model_name = sys_conf.model_name
         self.dataset = sys_conf.dataset
@@ -140,6 +185,7 @@ class Data():
         self.normal = get_bool(data_config["normalize"])
         self.shuffle = (get_bool(data_config["shuffle"]) if self.train else False)
         self.pic_pair = False
+        self.test_patch = test_patch
         if sys_conf.color_channel == "RGB":
             self.color_is_RGB = True
         elif sys_conf.color_channel == "Y":
@@ -202,9 +248,9 @@ class Data():
     def get_loader(self):
         LR_folder, HR_folder = self.__set_dataset_path()
         if self.color_is_RGB:
-            data = SR_dataset_RGB(HR_folder, LR_folder, self.scale, self.patch_size, self.train, self.is_post, self.normal, self.pic_pair)
+            data = SR_dataset_RGB(HR_folder, LR_folder, self.scale, self.patch_size, self.train, self.is_post, self.normal, self.pic_pair, self.test_patch)
         else:
-            data = SR_dataset_Y(HR_folder, LR_folder, self.scale, self.patch_size, self.train, self.is_post, self.normal, self.pic_pair)
+            data = SR_dataset_Y(HR_folder, LR_folder, self.scale, self.patch_size, self.train, self.is_post, self.normal, self.pic_pair, self.test_patch)
         loader = DataLoader(data, self.batch_size, self.shuffle, num_workers=self.num_workers, 
                             drop_last=self.drop_last, pin_memory=self.pin_memory)
         return loader

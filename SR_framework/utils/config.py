@@ -105,11 +105,17 @@ class sys_config():
         self.test_all = False
         self.shave = 0
         self.shave_is_scale = False
+        self.patch = None
         if "shave" in test_cfg:
             if test_cfg["shave"] == "scale":
                 self.shave_is_scale = True
             else:
                 self.shave = test_cfg["shave"]
+        if "patch" in test_cfg:
+            if test_cfg["patch"] == 0:
+                self.patch = None
+            else:
+                self.patch = test_cfg["patch"]
         if args.all:
             self.drew = get_bool(test_cfg["drew_pic"])
             self.test_all = True

@@ -2,6 +2,7 @@ import torch
 import os
 import utils
 import numpy
+import math
 import models
 
 class Tester():
@@ -60,7 +61,7 @@ class Tester():
             net.load_state_dict(para)
         net.eval()
         net.to(self.sys_conf.device_in_prog)
-        test_data = utils.Data(self.sys_conf, self.data_config, False)
+        test_data = utils.Data(self.sys_conf, self.data_config, False, self.sys_conf.patch)
         test_data.update_scale(self.curr_scale)
         self.is_normal = test_data.normal
         psnr_list = []
@@ -73,13 +74,13 @@ class Tester():
             test_data.update_dataset(self.curr_dataset)
             if self.sys_conf.model_mode == "post":
                 if self.sys_conf.scale_pos == "init":
-                    psnr, ssim = self.__test_pre_or_init(net, test_data.get_loader(), self.is_normal)
+                    psnr, ssim = self.__test_pre_or_init(net, test_data.get_loader(), self.is_normal, self.sys_conf.patch)
                 elif self.sys_conf.scale_pos == "forward":
-                    psnr, ssim = self.__test_scale_pos_is_forward(net, test_data.get_loader(), self.is_normal)
+                    psnr, ssim = self.__test_scale_pos_is_forward(net, test_data.get_loader(), self.is_normal, self.sys_conf.patch)
                 else:
                     raise NameError("WRONG MODEL SCALE POSITION!")
             elif self.sys_conf.model_mode == "pre":
-                psnr, ssim = self.__test_pre_or_init(net, test_data.get_loader(), test_data.normal)
+                psnr, ssim = self.__test_pre_or_init(net, test_data.get_loader(), test_data.normal, self.sys_conf.patch)
             else:
                 raise NameError("WRONG MODEL MODE!")
             psnr_list.append(psnr)
@@ -97,7 +98,7 @@ class Tester():
                 utils.log("Now testing scale " + str(self.curr_scale), self.sys_conf.model_name, True)
                 if self.sys_conf.shave_is_scale:
                     self.sys_conf.shave = self.curr_scale
-                test_data = utils.Data(self.sys_conf, self.data_config, False)
+                test_data = utils.Data(self.sys_conf, self.data_config, False, self.sys_conf.patch)
                 test_data.update_dataset(self.curr_dataset)
                 test_data.update_scale(self.curr_scale)
                 self.is_normal = test_data.normal
@@ -115,13 +116,13 @@ class Tester():
                     net.to(self.sys_conf.device_in_prog)
                     if self.sys_conf.model_mode == "post":
                         if self.sys_conf.scale_pos == "init":
-                            psnr, ssim = self.__test_pre_or_init(net, test_data.get_loader(), self.is_normal)
+                            psnr, ssim = self.__test_pre_or_init(net, test_data.get_loader(), self.is_normal, self.sys_conf.patch)
                         elif self.sys_conf.scale_pos == "forward":
-                            psnr, ssim = self.__test_scale_pos_is_forward(net, test_data.get_loader(), self.is_normal)
+                            psnr, ssim = self.__test_scale_pos_is_forward(net, test_data.get_loader(), self.is_normal, self.sys_conf.patch)
                         else:
                             raise NameError("WRONG MODEL SCALE POSITION!")
                     elif self.sys_conf.model_mode == "pre":
-                        psnr, ssim = self.__test_pre_or_init(net, test_data.get_loader(), self.is_normal)
+                        psnr, ssim = self.__test_pre_or_init(net, test_data.get_loader(), self.is_normal, self.sys_conf.patch)
                     else:
                         raise NameError("WRONG MODEL MODE!")
                     psnr_list[i] = psnr
@@ -136,18 +137,43 @@ class Tester():
         utils.log("Test scale: " + str(self.sys_conf.scale_factor), self.sys_conf.model_name) 
         utils.log("Test color channel: " + self.sys_conf.test_color_channel, self.sys_conf.model_name)
         utils.log("Shave: " + ("the same as scale" if self.sys_conf.shave_is_scale else str(self.sys_conf.shave)), self.sys_conf.model_name)
+        utils.log("Test image patch size is " + str(self.sys_conf.patch), self.sys_conf.model_name)
         utils.log("Test mode: " + ("All" if self.sys_conf.test_all else "Once"), self.sys_conf.model_name)
         if not self.sys_conf.test_all:
             utils.log("Test file: " + self.sys_conf.test_file, self.sys_conf.model_name)
-    def __test_scale_pos_is_forward(self, net, loader, is_normal):
+    def __test_scale_pos_is_forward(self, net, loader, is_normal, test_patch):
         mean_psnr = 0.0
         mean_ssim = 0.0
         test_len = 0
         for _, data in enumerate(loader):
             test_len += 1
-            lr, hr = data
-            sr = net(lr.to(self.sys_conf.device_in_prog), self.curr_scale)
-            sr = sr.permute(0, 2, 3, 1).squeeze(0).cpu()
+            if test_patch == None:
+                lr, hr = data
+                sr = net(lr.to(self.sys_conf.device_in_prog), self.curr_scale)
+                sr = sr.permute(0, 2, 3, 1).squeeze(0).cpu()
+            else:
+                lr, hr, shape = data
+                h_n = math.ceil(float(shape[0]) / test_patch)
+                w_n = math.ceil(float(shape[1]) / test_patch)
+                lr = lr[0,:,:,:,:]
+                [b, c] = lr.shape[:2]
+                sr = torch.zeros([1, c, shape[0]*self.curr_scale, shape[1]*self.curr_scale]) 
+                for n in range(b):
+                    lr_patch = lr[n, :, :, :]
+                    lr_patch = lr_patch.unsqueeze(0)
+                    sr_patch = net(lr_patch.to(self.sys_conf.device_in_prog), self.curr_scale)
+                    sr_patch = sr_patch.cpu()
+                    w_now = n % w_n
+                    h_now = math.ceil((n - w_now)/w_n)
+                    if w_now + 1 == w_n and h_now + 1 == h_n:
+                        sr[0, :, (int(shape[0])-test_patch)*self.curr_scale:, (int(shape[1])-test_patch)*self.curr_scale:] = sr_patch
+                    elif h_now + 1 == h_n:
+                        sr[0, :, (int(shape[0])-test_patch)*self.curr_scale:, test_patch*w_now*self.curr_scale:test_patch*(w_now+1)*self.curr_scale] = sr_patch
+                    elif w_now + 1 == w_n:
+                        sr[0, :, test_patch*h_now*self.curr_scale:test_patch*(h_now+1)*self.curr_scale, (int(shape[1])-test_patch)*self.curr_scale:] = sr_patch
+                    else:
+                        sr[0, :, test_patch*h_now*self.curr_scale:test_patch*(h_now+1)*self.curr_scale, test_patch*w_now*self.curr_scale:test_patch*(w_now+1)*self.curr_scale] = sr_patch
+                sr = sr.permute(0, 2, 3, 1).squeeze(0).detach()
             hr = hr.permute(0, 2, 3, 1).squeeze(0).cpu()
             if is_normal:
                 sr = sr * 255.
@@ -158,15 +184,39 @@ class Tester():
         mean_psnr = mean_psnr / test_len
         mean_ssim = mean_ssim / test_len
         return mean_psnr, mean_ssim
-    def __test_pre_or_init(self, net, loader, is_normal):
+    def __test_pre_or_init(self, net, loader, is_normal, test_patch):
         mean_psnr = 0.0
         mean_ssim = 0.0
         test_len = 0
         for _, data in enumerate(loader):
             test_len += 1
-            lr, hr = data
-            sr = net(lr.to(self.sys_conf.device_in_prog))
-            sr = sr.permute(0, 2, 3, 1).squeeze(0).cpu()
+            if test_patch == None:
+                lr, hr = data
+                sr = net(lr.to(self.sys_conf.device_in_prog))
+                sr = sr.permute(0, 2, 3, 1).squeeze(0).cpu()
+            else:
+                lr, hr, shape = data
+                h_n = math.ceil(float(shape[0]) / test_patch)
+                w_n = math.ceil(float(shape[1]) / test_patch)
+                lr = lr[0,:,:,:,:]
+                [b, c] = lr.shape[:2]
+                sr = torch.zeros([1, c, shape[0]*self.curr_scale, shape[1]*self.curr_scale])
+                for n in range(b):
+                    lr_patch = lr[n, :, :, :]
+                    lr_patch = lr_patch.unsqueeze(0)
+                    sr_patch = net(lr_patch.to(self.sys_conf.device_in_prog))
+                    sr_patch = sr_patch.cpu()
+                    w_now = n % w_n
+                    h_now = math.ceil((n - w_now)/w_n)
+                    if w_now + 1 == w_n and h_now + 1 == h_n:
+                        sr[0, :, (int(shape[0])-test_patch)*self.curr_scale:, (int(shape[1])-test_patch)*self.curr_scale:] = sr_patch
+                    elif h_now + 1 == h_n:
+                        sr[0, :, (int(shape[0])-test_patch)*self.curr_scale:, test_patch*w_now*self.curr_scale:test_patch*(w_now+1)*self.curr_scale] = sr_patch
+                    elif w_now + 1 == w_n:
+                        sr[0, :, test_patch*h_now*self.curr_scale:test_patch*(h_now+1)*self.curr_scale, (int(shape[1])-test_patch)*self.curr_scale:] = sr_patch
+                    else:
+                        sr[0, :, test_patch*h_now*self.curr_scale:test_patch*(h_now+1)*self.curr_scale, test_patch*w_now*self.curr_scale:test_patch*(w_now+1)*self.curr_scale] = sr_patch
+                sr = sr.permute(0, 2, 3, 1).squeeze(0).detach()
             hr = hr.permute(0, 2, 3, 1).squeeze(0).cpu()
             if is_normal:
                 sr = sr * 255.
@@ -178,7 +228,8 @@ class Tester():
         mean_ssim = mean_ssim / test_len
         return mean_psnr, mean_ssim
     def test(self):
-        if self.sys_conf.test_all:
-            self.__test_all()
-        else:
-            self.__test_once()
+        with torch.no_grad():
+            if self.sys_conf.test_all:
+                self.__test_all()
+            else:
+                self.__test_once()
