@@ -7,4 +7,4 @@ from .optim import get_optimizer, get_scheduler
 from .weights_init import init_weights
 from .trainer import Trainer
 from .tester import Tester
-from .test_func import prepare_and_compute, drew_pic, make_csv_file, make_csv_file_at_test_once
+from .test_func import prepare, drew_pic, make_csv_file, make_csv_file_at_test_once, compute_psnr, calculate_ssim, util_of_lpips

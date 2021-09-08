@@ -66,6 +66,7 @@ class Tester():
         self.is_normal = test_data.normal
         psnr_list = []
         ssim_list = []
+        lpips_list = []
         dataset_list = []
         for dataset in self.sys_conf.test_dataset:
             self.curr_dataset = dataset
@@ -74,20 +75,25 @@ class Tester():
             test_data.update_dataset(self.curr_dataset)
             if self.sys_conf.model_mode == "post":
                 if self.sys_conf.scale_pos == "init":
-                    psnr, ssim = self.__test_pre_or_init(net, test_data.get_loader(), self.is_normal, self.sys_conf.patch)
+                    psnr, ssim, lpips = self.__test_pre_or_init(net, test_data.get_loader(), self.is_normal, self.sys_conf.patch)
                 elif self.sys_conf.scale_pos == "forward":
-                    psnr, ssim = self.__test_scale_pos_is_forward(net, test_data.get_loader(), self.is_normal, self.sys_conf.patch)
+                    psnr, ssim, lpips = self.__test_scale_pos_is_forward(net, test_data.get_loader(), self.is_normal, self.sys_conf.patch)
                 else:
                     raise NameError("WRONG MODEL SCALE POSITION!")
             elif self.sys_conf.model_mode == "pre":
-                psnr, ssim = self.__test_pre_or_init(net, test_data.get_loader(), test_data.normal, self.sys_conf.patch)
+                psnr, ssim, lpips = self.__test_pre_or_init(net, test_data.get_loader(), test_data.normal, self.sys_conf.patch)
             else:
                 raise NameError("WRONG MODEL MODE!")
             psnr_list.append(psnr)
             ssim_list.append(ssim)
-            utils.log("PSNR: " + str(round(psnr, 2)) + "db", self.sys_conf.model_name, True)
-            utils.log("SSIM: " + str(round(ssim, 4)), self.sys_conf.model_name, True)
-        utils.make_csv_file_at_test_once(psnr_list, ssim_list, dataset_list, self.sys_conf.test_file, self.save_path, self.sys_conf.test_color_channel)
+            lpips_list.append(lpips)
+            if "PSNR" in self.sys_conf.indicators:
+                utils.log("PSNR: " + str(round(psnr, 2)) + "db", self.sys_conf.model_name, True)
+            if "SSIM" in self.sys_conf.indicators:
+                utils.log("SSIM: " + str(round(ssim, 4)), self.sys_conf.model_name, True)
+            if "LPIPS" in self.sys_conf.indicators:
+                utils.log("LPIPS: " + str(round(lpips, 4)), self.sys_conf.model_name, True)
+        utils.make_csv_file_at_test_once(psnr_list, ssim_list, lpips_list, dataset_list, self.sys_conf.test_file, self.save_path, self.sys_conf.test_color_channel, self.sys_conf.indicators)
     def __test_all(self):
         self.show()
         for dataset in self.sys_conf.test_dataset:
@@ -107,6 +113,7 @@ class Tester():
                 net.eval()
                 psnr_list = numpy.zeros(total_model_num + 1, dtype=float)
                 ssim_list = numpy.zeros(total_model_num + 1, dtype=float)
+                lpips_list = numpy.zeros(total_model_num + 1, dtype=float)
                 for i in range(1, total_model_num + 1):
                     test_file = "net_x" + str(self.curr_scale) + "_" + str(i * self.sys_conf.save_step) + ".pth"
                     utils.log("Now testing model " + str(test_file), self.sys_conf.model_name, True)
@@ -116,20 +123,21 @@ class Tester():
                     net.to(self.sys_conf.device_in_prog)
                     if self.sys_conf.model_mode == "post":
                         if self.sys_conf.scale_pos == "init":
-                            psnr, ssim = self.__test_pre_or_init(net, test_data.get_loader(), self.is_normal, self.sys_conf.patch)
+                            psnr, ssim, lpips = self.__test_pre_or_init(net, test_data.get_loader(), self.is_normal, self.sys_conf.patch)
                         elif self.sys_conf.scale_pos == "forward":
-                            psnr, ssim = self.__test_scale_pos_is_forward(net, test_data.get_loader(), self.is_normal, self.sys_conf.patch)
+                            psnr, ssim, lpips = self.__test_scale_pos_is_forward(net, test_data.get_loader(), self.is_normal, self.sys_conf.patch)
                         else:
                             raise NameError("WRONG MODEL SCALE POSITION!")
                     elif self.sys_conf.model_mode == "pre":
-                        psnr, ssim = self.__test_pre_or_init(net, test_data.get_loader(), self.is_normal, self.sys_conf.patch)
+                        psnr, ssim, lpips = self.__test_pre_or_init(net, test_data.get_loader(), self.is_normal, self.sys_conf.patch)
                     else:
                         raise NameError("WRONG MODEL MODE!")
                     psnr_list[i] = psnr
                     ssim_list[i] = ssim
+                    lpips_list[i] = lpips
                 if self.sys_conf.drew:
-                    utils.drew_pic(psnr_list, ssim_list, self.curr_dataset, self.curr_scale, self.sys_conf.save_step, self.save_path, self.sys_conf.test_color_channel)
-                utils.make_csv_file(psnr_list, ssim_list, self.curr_dataset, self.curr_scale, self.sys_conf.save_step, self.save_path, self.sys_conf.test_color_channel)
+                    utils.drew_pic(psnr_list, ssim_list, lpips_list, self.curr_dataset, self.curr_scale, self.sys_conf.save_step, self.save_path, self.sys_conf.test_color_channel, self.sys_conf.indicators)
+                utils.make_csv_file(psnr_list, ssim_list, lpips_list, self.curr_dataset, self.curr_scale, self.sys_conf.save_step, self.save_path, self.sys_conf.test_color_channel, self.sys_conf.indicators)
     def show(self):
         utils.log("", self.sys_conf.model_name)
         utils.log("--------This is model test config-------", self.sys_conf.model_name)
@@ -137,6 +145,7 @@ class Tester():
         utils.log("Test scale: " + str(self.sys_conf.scale_factor), self.sys_conf.model_name) 
         utils.log("Test color channel: " + self.sys_conf.test_color_channel, self.sys_conf.model_name)
         utils.log("Shave: " + ("the same as scale" if self.sys_conf.shave_is_scale else str(self.sys_conf.shave)), self.sys_conf.model_name)
+        utils.log("Test indicators are " + str(self.sys_conf.indicators), self.sys_conf.model_name)
         utils.log("Test image patch size is " + str(self.sys_conf.patch), self.sys_conf.model_name)
         utils.log("Test mode: " + ("All" if self.sys_conf.test_all else "Once"), self.sys_conf.model_name)
         if not self.sys_conf.test_all:
@@ -144,7 +153,10 @@ class Tester():
     def __test_scale_pos_is_forward(self, net, loader, is_normal, test_patch):
         mean_psnr = 0.0
         mean_ssim = 0.0
+        mean_lpips = 0.0
         test_len = 0
+        if "LPIPS" in self.sys_conf.indicators:
+            lpips_loss = utils.util_of_lpips("alex", False)
         for _, data in enumerate(loader):
             test_len += 1
             if test_patch == None:
@@ -157,7 +169,7 @@ class Tester():
                 w_n = math.ceil(float(shape[1]) / test_patch)
                 lr = lr[0,:,:,:,:]
                 [b, c] = lr.shape[:2]
-                sr = torch.zeros([1, c, shape[0]*self.curr_scale, shape[1]*self.curr_scale]) 
+                sr = torch.zeros([1, c, shape[0]*self.curr_scale, shape[1]*self.curr_scale])
                 for n in range(b):
                     lr_patch = lr[n, :, :, :]
                     lr_patch = lr_patch.unsqueeze(0)
@@ -178,16 +190,30 @@ class Tester():
             if is_normal:
                 sr = sr * 255.
                 hr = hr * 255.
-            psnr, ssim = utils.prepare_and_compute(sr, hr, self.sys_conf.shave, self.sys_conf.test_color_channel)
+            sr, hr = utils.prepare(sr, hr, self.sys_conf.shave, self.sys_conf.test_color_channel)
+            psnr = 0.
+            ssim = 0.
+            lpips = 0.
+            if "PSNR" in self.sys_conf.indicators:
+                psnr = utils.compute_psnr(sr, hr)
+            if "SSIM" in self.sys_conf.indicators:
+                ssim = utils.calculate_ssim(sr, hr)
+            if "LPIPS" in self.sys_conf.indicators:
+                lpips = lpips_loss.calculate_lpips(sr, hr)
             mean_psnr += psnr
             mean_ssim += ssim
+            mean_lpips += lpips
         mean_psnr = mean_psnr / test_len
         mean_ssim = mean_ssim / test_len
-        return mean_psnr, mean_ssim
+        mean_lpips = mean_lpips / test_len
+        return mean_psnr, mean_ssim, mean_lpips
     def __test_pre_or_init(self, net, loader, is_normal, test_patch):
         mean_psnr = 0.0
         mean_ssim = 0.0
+        mean_lpips = 0.0
         test_len = 0
+        if "LPIPS" in self.sys_conf.indicators:
+            lpips_loss = utils.util_of_lpips("alex", False)
         for _, data in enumerate(loader):
             test_len += 1
             if test_patch == None:
@@ -221,12 +247,23 @@ class Tester():
             if is_normal:
                 sr = sr * 255.
                 hr = hr * 255.
-            psnr, ssim = utils.prepare_and_compute(sr, hr, self.sys_conf.shave, self.sys_conf.test_color_channel)
+            sr, hr = utils.prepare(sr, hr, self.sys_conf.shave, self.sys_conf.test_color_channel)
+            psnr = 0.
+            ssim = 0.
+            lpips = 0.
+            if "PSNR" in self.sys_conf.indicators:
+                psnr = utils.compute_psnr(sr, hr)
+            if "SSIM" in self.sys_conf.indicators:
+                ssim = utils.calculate_ssim(sr, hr)
+            if "LPIPS" in self.sys_conf.indicators:
+                lpips = lpips_loss.calculate_lpips(sr, hr)
             mean_psnr += psnr
             mean_ssim += ssim
+            mean_lpips += lpips
         mean_psnr = mean_psnr / test_len
         mean_ssim = mean_ssim / test_len
-        return mean_psnr, mean_ssim
+        mean_lpips = mean_lpips / test_len
+        return mean_psnr, mean_ssim, mean_lpips
     def test(self):
         with torch.no_grad():
             if self.sys_conf.test_all:

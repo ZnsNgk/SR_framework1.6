@@ -48,19 +48,14 @@
 本框架需要以下python包：
 
 ```
-random
-torch
-math
-json
 numpy
-torchvision
-datetime
-tqdm
 opencv-python
 pandas
-shutil
 matplotlib
-copy
+tqdm
+torch
+torchvision
+lpips
 ```
 
 ### 首次运行
@@ -213,7 +208,11 @@ class MSRN(nn.Module):
 
 `test_dataset`：测试集，用一个`list`表示，其中每一个测试集的名称都要与`./data/test/`中的测试集名称匹配，测试时会按照这个依次进行测试
 
+`test_indicators`：测试指标，用一个`list`表示，表示需要测试的项目，可选为`"PSNR"`、`"SSIM"`和`"LPIPS"`，默认为PSNR和SSIM
+
 `shave`：测试时每张图像从边缘裁剪的像素大小，可以直接设置数字，或者设置为`"scale"`，表示和当前放大系数相同，默认为0
+
+`patch`：图像切片大小，将LR图像切成固定大小的小块送入网络，防止因图像过大而爆显存，设置为0时表示不切片，默认为0
 
 ## 训练
 
@@ -359,3 +358,8 @@ v1.1 修改指定GPU逻辑
 v1.2 增加使用真实图像数据集训练的功能
 
 v1.3 添加一键运行功能
+
+v1.4 添加测试集图像切片功能
+
+v1.5 修改测试逻辑，增加选择测试项目功能，增加LPIPS指标
+
