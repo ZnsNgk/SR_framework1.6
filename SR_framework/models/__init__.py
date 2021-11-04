@@ -1,4 +1,6 @@
-
+'''
+Import your models here and join them into model_list
+'''
 
 model_list = {
 

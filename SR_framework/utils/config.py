@@ -41,12 +41,15 @@ class sys_config():
             if "optim_args" in cfg:
                 self.optim_args = cfg["optim_args"]
         self.__check_cuda()
-        self.device = device(self.device)
+        self.device_in_prog = device(self.device_in_prog)
     def __check_cuda(self):
         if "cuda" in self.device:
             cuda_idx = self.device.split(':')
             cuda_idx = cuda_idx[1].replace(' ', '')
-            os.environ["CUDA_VISIBLE_DEVICES"] = cuda_idx
+            if self.train:
+                os.environ["CUDA_VISIBLE_DEVICES"] = cuda_idx
+            else:
+                os.environ["CUDA_VISIBLE_DEVICES"] = cuda_idx[0]
             if not is_available():
                 print(self.device + " is not useable, now try to use cpu!")
                 self.device = "cpu"
@@ -61,8 +64,11 @@ class sys_config():
                     else:
                         cuda_idx_int.append(int(cuda_idx))
                     if len(cuda_idx_int) > 1:
-                        self.device_in_prog = list(range(len(cuda_idx_int)))
-                        self.parallel = True
+                        if self.train:
+                            self.parallel = True
+                            self.device_in_prog = "cuda"
+                        else:
+                            self.device_in_prog = "cuda:0"
                     else:
                         self.device_in_prog = "cuda:0"
                 else:
@@ -106,7 +112,6 @@ class sys_config():
         self.shave = 0
         self.shave_is_scale = False
         self.patch = None
-        self.indicators = ["PSNR", "SSIM"]
         if "shave" in test_cfg:
             if test_cfg["shave"] == "scale":
                 self.shave_is_scale = True
@@ -117,8 +122,6 @@ class sys_config():
                 self.patch = None
             else:
                 self.patch = test_cfg["patch"]
-        if "test_indicators" in test_cfg:
-            self.indicators = test_cfg["test_indicators"]
         if args.all:
             self.drew = get_bool(test_cfg["drew_pic"])
             self.test_all = True

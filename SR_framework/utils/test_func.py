@@ -75,17 +75,17 @@ class util_of_lpips():
             raise ValueError('Input images must have the same dimensions.')
         if img1.ndim == 2:
             img1 = cv2.cvtColor(img1, cv2.COLOR_GRAY2RGB)
-            img1 = cv2.cvtColor(img2, cv2.COLOR_GRAY2RGB)
+            img2 = cv2.cvtColor(img2, cv2.COLOR_GRAY2RGB)
         elif img1.ndim == 3:
             img1 = cv2.cvtColor(img1, cv2.COLOR_BGR2RGB)
-            img1 = cv2.cvtColor(img2, cv2.COLOR_BGR2RGB)
+            img2 = cv2.cvtColor(img2, cv2.COLOR_BGR2RGB)
         img1 = lpips.im2tensor(img1)
         img2 = lpips.im2tensor(img2)
         if self.use_gpu:
             img1 = img1.cuda()
             img2 = img2.cuda()
         loss_lpips = self.loss_fn.forward(img1, img2)
-        return loss_lpips
+        return float(loss_lpips)
     
 
 def shave(hr, sr, shave_pix):
@@ -178,11 +178,12 @@ def drew_pic(psnr_list, ssim_list, lpips_list, dataset_name, scale, step, result
         flag += 1
     if "LPIPS" in indicators:
         plt.subplot(flag)
+        lpips_list[0] = 100.
         lpips_argmin = numpy.argmin(lpips_list)
         lpips_list[0] = lpips_list[lpips_argmin]
         plt.xlim(xmax = length*step, xmin = step)
         plt.plot(x, lpips_list, label='LPIPS', color='b')
-        plt.title('LPIPS Min is ' + str(round(ssim_list[lpips_argmin],4)) + ', position is:' + str(lpips_argmin*step))
+        plt.title('LPIPS Min is ' + str(round(lpips_list[lpips_argmin],4)) + ', position is:' + str(lpips_argmin*step))
         plt.xlabel('Epoch')
         plt.ylabel('LPIPS')
         plt.legend()

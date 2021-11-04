@@ -62,19 +62,22 @@ class Trainer():
         if self.data.is_post:
             if self.sys_conf.scale_pos == "init":
                 if self.sys_conf.model_args == None:
-                    return models.get_model(self.sys_conf.model, scale=self.curr_scale)
+                    model = models.get_model(self.sys_conf.model, scale=self.curr_scale)
                 else:
-                    return models.get_model(self.sys_conf.model, scale=self.curr_scale, **self.sys_conf.model_args)
+                    model = models.get_model(self.sys_conf.model, scale=self.curr_scale, **self.sys_conf.model_args)
             elif self.sys_conf.scale_pos == "forward":
                 if self.sys_conf.model_args == None:
-                    return models.get_model(self.sys_conf.model)
+                    model = models.get_model(self.sys_conf.model)
                 else:
-                    return models.get_model(self.sys_conf.model, **self.sys_conf.model_args)
+                    model = models.get_model(self.sys_conf.model, **self.sys_conf.model_args)
         else:
             if self.sys_conf.model_args == None:
-                return models.get_model(self.sys_conf.model)
+                model = models.get_model(self.sys_conf.model)
             else:
-                return models.get_model(self.sys_conf.model, **self.sys_conf.model_args)
+                model = models.get_model(self.sys_conf.model, **self.sys_conf.model_args)
+        if self.sys_conf.parallel:
+            model = torch.nn.parallel.DataParallel(model)
+        return model
     def __check_folder(self):
         trained_model_path = './trained_model/' + self.sys_conf.model_name + '/'
         if not os.path.exists(trained_model_path):
@@ -127,7 +130,10 @@ class Trainer():
             scheduler = self._set_scheduler(optim)
         if self.is_break:
             para = torch.load(self.break_path)
-            net.load_state_dict(para)
+            if self.sys_conf.parallel:
+                net.module.load_state_dict(para)
+            else:
+                net.load_state_dict(para)
         else:
             utils.init_weights(self.sys_conf.weight_init, net, self.sys_conf.model_name)
         net = net.to(self.sys_conf.device_in_prog)
@@ -159,8 +165,14 @@ class Trainer():
                     for lr, hr in t:
                         i += 1
                         optim.zero_grad()
-                        sr = net(lr.to(self.sys_conf.device_in_prog), scale)
-                        loss = loss_func(sr, hr.to(self.sys_conf.device_in_prog))
+                        if self.sys_conf.parallel:
+                            lr = lr.to(self.sys_conf.device_in_prog)
+                            hr = hr.cuda()
+                        else:
+                            lr = lr.to(self.sys_conf.device_in_prog)
+                            hr = hr.to(self.sys_conf.device_in_prog)
+                        sr = net(lr, scale)
+                        loss = loss_func(sr, hr)
                         loss.backward()
                         optim.step()
                         running_loss += float(loss)
@@ -173,13 +185,19 @@ class Trainer():
                 scheduler.step()
                 if epoch % self.sys_conf.save_step == 0:
                     PATH = './trained_model/' + self.sys_conf.model_name + '/net_x'+ str(self.curr_scale) + '_' + str(epoch) + '.pth'
-                    torch.save(net.state_dict(), PATH)
+                    if self.sys_conf.parallel:
+                        torch.save(net.module.state_dict(), PATH)
+                    else:
+                        torch.save(net.state_dict(), PATH)
             if self.curr_scale_list_pos == 1:
                 optim_state = optim.state_dict()
                 scheduler_state = scheduler.state_dict()
             utils.log("Finished trained scale " + str(self.curr_scale), self.sys_conf.model_name, True)
             PATH = './trained_model/' + self.sys_conf.model_name + '/x'+ str(self.curr_scale) + '.pkl'
-            torch.save(net, PATH)
+            if self.sys_conf.parallel:
+                torch.save(net.module, PATH)
+            else:
+                torch.save(net, PATH)
             self.is_break = False
     def __train_scale_pos_is_init(self):
         loss_func = self.sys_conf.get_loss()
@@ -189,7 +207,10 @@ class Trainer():
             net.train()
             if self.is_break:
                 para = torch.load(self.break_path)
-                net.load_state_dict(para)
+                if self.sys_conf.parallel:
+                    net.module.load_state_dict(para)
+                else:
+                    net.load_state_dict(para)
             else:
                 utils.init_weights(self.sys_conf.weight_init, net, self.sys_conf.model_name)
             optim = self.__set_optim(net)
@@ -206,8 +227,14 @@ class Trainer():
                     for lr, hr in t:
                         i += 1
                         optim.zero_grad()
-                        sr = net(lr.to(self.sys_conf.device_in_prog))
-                        loss = loss_func(sr, hr.to(self.sys_conf.device_in_prog))
+                        if self.sys_conf.parallel:
+                            lr = lr.cuda()
+                            hr = hr.cuda()
+                        else:
+                            lr = lr.to(self.sys_conf.device_in_prog)
+                            hr = hr.to(self.sys_conf.device_in_prog)
+                        sr = net(lr)
+                        loss = loss_func(sr, hr)
                         loss.backward()
                         optim.step()
                         running_loss += float(loss)
@@ -220,10 +247,16 @@ class Trainer():
                 scheduler.step()
                 if epoch % self.sys_conf.save_step == 0:
                     PATH = './trained_model/' + self.sys_conf.model_name + '/net_x'+ str(self.curr_scale) + '_' + str(epoch) + '.pth'
-                    torch.save(net.state_dict(), PATH)
+                    if self.sys_conf.parallel:
+                        torch.save(net.module.state_dict(), PATH)
+                    else:
+                        torch.save(net.state_dict(), PATH)
             utils.log("Finished trained scale " + str(self.curr_scale), self.sys_conf.model_name, True)
             PATH = './trained_model/' + self.sys_conf.model_name + '/x'+ str(self.curr_scale) + '.pkl'
-            torch.save(net, PATH)
+            if self.sys_conf.parallel:
+                torch.save(net.module, PATH)
+            else:
+                torch.save(net, PATH)
             self.is_break = False
     def __train_model_mode_is_pre(self):
         net = self.__get_model()
@@ -233,7 +266,10 @@ class Trainer():
             scheduler = self._set_scheduler(optim)
         if self.is_break:
             para = torch.load(self.break_path)
-            net.load_state_dict(para)
+            if self.sys_conf.parallel:
+                net.module.load_state_dict(para)
+            else:
+                net.load_state_dict(para)
         else:
             utils.init_weights(self.sys_conf.weight_init, net, self.sys_conf.model_name)
         net = net.to(self.sys_conf.device_in_prog)
@@ -265,8 +301,14 @@ class Trainer():
                     for lr, hr in t:
                         i += 1
                         optim.zero_grad()
-                        sr = net(lr.to(self.sys_conf.device_in_prog))
-                        loss = loss_func(sr, hr.to(self.sys_conf.device_in_prog))
+                        if self.sys_conf.parallel:
+                            lr = lr.cuda()
+                            hr = hr.cuda()
+                        else:
+                            lr = lr.to(self.sys_conf.device_in_prog)
+                            hr = hr.to(self.sys_conf.device_in_prog)
+                        sr = net(lr)
+                        loss = loss_func(sr, hr)
                         loss.backward()
                         optim.step()
                         running_loss += float(loss)
@@ -279,11 +321,17 @@ class Trainer():
                 scheduler.step()
                 if epoch % self.sys_conf.save_step == 0:
                     PATH = './trained_model/' + self.sys_conf.model_name + '/net_x'+ str(self.curr_scale) + '_' + str(epoch) + '.pth'
-                    torch.save(net.state_dict(), PATH)
+                    if self.sys_conf.parallel:
+                        torch.save(net.module.state_dict(), PATH)
+                    else:
+                        torch.save(net.state_dict(), PATH)
             if self.curr_scale_list_pos == 1:
                 optim_state = optim.state_dict()
                 scheduler_state = scheduler.state_dict()
             utils.log("Finished trained scale " + str(self.curr_scale), self.sys_conf.model_name, True)
             PATH = './trained_model/' + self.sys_conf.model_name + '/x'+ str(self.curr_scale) + '.pkl'
-            torch.save(net, PATH)
+            if self.sys_conf.parallel:
+                torch.save(net.module, PATH)
+            else:
+                torch.save(net, PATH)
             self.is_break = False
