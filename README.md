@@ -208,7 +208,7 @@ class MSRN(nn.Module):
 
 `test_dataset`：测试集，用一个`list`表示，其中每一个测试集的名称都要与`./data/test/`中的测试集名称匹配，测试时会按照这个依次进行测试
 
-`test_indicators`：测试指标，用一个`list`表示，表示需要测试的项目，可选为`"PSNR"`、`"SSIM"`和`"LPIPS"`，默认为PSNR和SSIM
+`indicators`：测试指标，用一个`list`表示，表示需要测试的项目，可选为`"PSNR"`、`"SSIM"`和`"LPIPS"`，默认为PSNR和SSIM
 
 `shave`：测试时每张图像从边缘裁剪的像素大小，可以直接设置数字，或者设置为`"scale"`，表示和当前放大系数相同，默认为0
 
