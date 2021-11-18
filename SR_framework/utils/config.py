@@ -112,6 +112,7 @@ class sys_config():
         self.shave = 0
         self.shave_is_scale = False
         self.patch = None
+        self.indicators = ['PSNR', 'SSIM']
         if "shave" in test_cfg:
             if test_cfg["shave"] == "scale":
                 self.shave_is_scale = True
@@ -122,6 +123,8 @@ class sys_config():
                 self.patch = None
             else:
                 self.patch = test_cfg["patch"]
+        if "indicators" in test_cfg:
+            self.indicators = test_cfg["indicators"]
         if args.all:
             self.drew = get_bool(test_cfg["drew_pic"])
             self.test_all = True
