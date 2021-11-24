@@ -96,10 +96,11 @@ class Trainer():
         self.curr_scale = curr_scale
         self.data.update_scale(curr_scale)
     def __set_optim(self, m):
+        trainable = filter(lambda x: x.requires_grad, m.parameters())
         if self.sys_conf.optim_args == None:
-            return utils.get_optimizer(self.sys_conf.optim, m.parameters(), self.init_lr)
+            return utils.get_optimizer(self.sys_conf.optim, trainable, self.init_lr)
         else:
-            return utils.get_optimizer(self.sys_conf.optim, m.parameters(), self.init_lr, **self.sys_conf.optim_args)
+            return utils.get_optimizer(self.sys_conf.optim, trainable, self.init_lr, **self.sys_conf.optim_args)
     def _set_scheduler(self, optim):
         return utils.get_scheduler(self.decay_mode, optim, step_size=self.per_epoch, gamma=self.decay_rate, eta_min=self.eta_min)
     def train(self):
