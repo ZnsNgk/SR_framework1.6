@@ -73,6 +73,9 @@ class sys_config():
                         self.device_in_prog = "cuda:0"
                 else:
                     self.device_in_prog = "cuda:0"
+        else:
+            self.device = "cpu"
+            self.device_in_prog = "cpu"
     def __set_scale(self):
         if not isinstance(self.scale_factor, list):
             scale_list = []
